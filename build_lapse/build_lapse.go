@@ -22,11 +22,13 @@ func createTimelapse(outputPath string, inputPath string) {
 	videoName := "timelapse_" + time.Now().Format(layout) + ".mp4"
 
 	fmt.Println("*********************************************************************************")
-	fmt.Println(`             _      __   __                             
-	_   __ ____   (_)____/ /  / /____ _ ____   _____ ___      
- | | / // __ \ / // __  /  / // __ ` + "`" + `// __ \ / ___// _ \     
- | |/ // /_/ // // /_/ /  / // /_/ // /_/ /(__  )/  __/     
- |___/ \____//_/ \__,_/  /_/ \__,_// .___//____/ \___/   `)
+	fmt.Println(`
+	▗▖  ▗▖ ▗▄▖ ▗▄▄▄▖▗▄▄▄     ▗▖    ▗▄▖ ▗▄▄▖  ▗▄▄▖▗▄▄▄▖    
+	▐▌  ▐▌▐▌ ▐▌  █  ▐▌  █    ▐▌   ▐▌ ▐▌▐▌ ▐▌▐▌   ▐▌       
+	▐▌  ▐▌▐▌ ▐▌  █  ▐▌  █    ▐▌   ▐▛▀▜▌▐▛▀▘  ▝▀▚▖▐▛▀▀▘    
+	 ▝▚▞▘ ▝▚▄▞▘▗▄█▄▖▐▙▄▄▀    ▐▙▄▄▖▐▌ ▐▌▐▌   ▗▄▄▞▘▐▙▄▄▖    
+																											 
+	`)
 
 	fmt.Printf("Starting to process timelapse creation:%v\n", time.Now())
 	// Construct the gstreamer command
