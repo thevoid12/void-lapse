@@ -33,13 +33,13 @@ func main() {
 	flag.StringVar(&inputFile, "i", "", "AC:input video file")
 	flag.StringVar(&outputFile, "o", "", "AC:output video file")
 	flag.StringVar(&textColor, "c", "white", "AC:text color (white or black)")
-	flag.StringVar(&timestampFormat, "i", "datetime", "AC:timestamp format (datetime, date, time)")
+	flag.StringVar(&timestampFormat, "f", "datetime", "AC:timestamp format (datetime, date, time)")
 	flag.StringVar(&mode, "m", "build", "mode (build or shoot or just add clock)")
 	flag.Parse()
 
 	switch mode {
 	case "build":
-		build_lapse.BuildLapse(inputFile, outputFile, textColor, timestampFormat)
+		build_lapse.BuildLapse(inputFile, outputFile, textColor, timestampFormat, wantTimestamp)
 	case "shoot":
 		shoot_lapse.ShootLapse(durationHours, intervalSeconds, shootoutputPath)
 	case "timestamp":

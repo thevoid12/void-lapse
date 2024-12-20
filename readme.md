@@ -56,3 +56,28 @@ sudo apt-get install ffmpeg
 go run main.go -input input.mp4 -output output.mp4 -c white -t datetime
 go run add_clock.go -input "../timelapse_photos/timelapse.mp4" -output "../timelapse_photos/output.mp4" -c white -t datetime
 go get golang.org/x/image/font/basicfont
+
+
+## finally
+
+```bash
+go mod init voidlapse
+go mod tidy
+go build voidlapse
+# to know what are the flags available
+./voidlapse -h
+```
+# for shoot lapse:
+```bash
+./voidlapse -m shoot -d 0.014 -i 5 -o ./timelapse_photos
+```
+# for Building lapse out of images shot:
+
+```bash
+./voidlapse -m build -ip ./timelapse_photos -op ./timelapse_photos -c white -f date -t y
+```
+
+# for adding timestamp on existing video:
+```bash 
+./voidlapse -m timestamp -i ./timelapse_photos/timelapse.mp4 -op ./timelapse_photos/ts_timelapse.mp4 -c white -f date
+```
