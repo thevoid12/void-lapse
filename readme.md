@@ -1,83 +1,111 @@
-python shoot-lapse.py -d 0.014 -i 5 -o ./timelapse_photos
-ffmpeg -framerate 30 -i image_%05d.jpg -c:v libx264 -pix_fmt yuv420p -preset ultrafast timelapse1.mp4
-ffmpeg -framerate 30 -i /path/to/images/image_%05d.jpg -c:v libx264 -pix_fmt yuv420p -preset ultrafast timelapse1.mp4
+# Void Lapse  
+Void Lapse is an easy-to-use, Linux-based timelapse creation tool written in Go. It simplifies the process of creating hours-long timelapses by providing an intuitive command-line interface.
 
-```go
-go mod init shoot_lapse
-go mod tidy
-go build shoot_lapse.go
-./shoot_lapse -d 0.014 -i 5 -o ./timelapse_photos
-```
+![Terminal View](/img/1.png)  
+![Sample Timelapse Image](/img/2.jpg)
+
+---
+
+## Features  
+- **Three distinct modes:**
+  1. **Shoot Mode (SL):** Captures images at regular intervals.
+  2. **Build Lapse Mode (BL):** Converts captured images into a timelapse video.
+  3. **Add Clock Mode (AC):** Adds timestamps to existing videos based on frame metadata.  
+- Flexible timestamp customization options, including format and color.  
+- Lightweight and designed for Linux environments.
+
+---
+
+## Installation  
+
+### Prerequisites  
+Ensure the following dependencies are installed:  
+
+1. **Go Libraries:**  
+   ```bash
+   go get github.com/fogleman/gg
+   go get github.com/u2takey/ffmpeg-go
+   go get golang.org/x/image/font/basicfont
+   ```
+2. **System Dependencies:**  
+   ```bash
+   sudo apt-get install ffmpeg libavcodec-dev libavformat-dev libswscale-dev libv4l-dev
+   sudo apt-get install -y v4l-utils \
+       libgstreamer1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+       gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
+       gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa \
+       gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+   ```
+
+### Verify Camera Detection  
+Plug in your webcam and verify detection:  
+
 ```bash
-sudo apt update
-sudo apt install ffmpeg
+ls -l /dev/video*
 ```
-ffmpeg -f v4l2 -video_size 1280x720 -i /dev/video0 -s 30 -frames 1 out.jpg
-fswebcam -r 1280x720 -p YUYV --set -D 2 -S 60 -F 10  test_image7.jpg
+You should see something like `video0`.  
 
+```bash
+v4l2-ctl --list-devices
+```
 
+---
 
-# Update package lists
-sudo apt-get update
+## How to Use  
 
-# Install build tools and dependencies
-sudo apt-get install -y build-essential cmake pkg-config
-sudo apt-get install -y libjpeg-dev libpng-dev libtiff-dev
-sudo apt-get install -y libavcodec-dev libavformat-dev libswscale-dev libv4l-dev
-sudo apt-get install -y libxvidcore-dev libx264-dev
-sudo apt-get install -y libgtk-3-dev
-sudo apt-get install -y libatlas-base-dev gfortran
-sudo apt-get install -y python3-dev
-
-# Install OpenCV 4
-sudo apt-get install -y python3-opencv
-sudo apt-get install -y libopencv-dev
-
-
-sudo apt-get update
-sudo apt-get install build-essential pkg-config
-sudo apt-get install libopencv-dev
-sudo apt-get install libavcodec-dev libavformat-dev libswscale-dev libv4l-dev
-go get -u gocv.io/x/gocv
-
-
-go run main.go -c black -i date -input input.mp4 -output output.mp4
-
-
-
-# Install required dependencies
-go get github.com/fogleman/gg
-go get github.com/u2takey/ffmpeg-go
-
-# Make sure ffmpeg is installed
-sudo apt-get install ffmpeg
-
-# Run the program
-go run main.go -input input.mp4 -output output.mp4 -c white -t datetime
-go run add_clock.go -input "../timelapse_photos/timelapse.mp4" -output "../timelapse_photos/output.mp4" -c white -t datetime
-go get golang.org/x/image/font/basicfont
-
-
-## finally
-
+### Setup  
 ```bash
 go mod init voidlapse
 go mod tidy
 go build voidlapse
-# to know what are the flags available
+```
+To see available flags:
+```bash
 ./voidlapse -h
 ```
-# for shoot lapse:
+![Flags Overview](./img/3.png)
+
+### Modes  
+
+#### 1. **Shoot Mode (SL)**  
+Captures images at regular intervals. Use the following flags:  
+- `-d`: Duration in hours.  
+- `-i`: Interval between each image in seconds.  
+- `-o`: Output directory where the images will be stored.  
+
+Example:  
 ```bash
 ./voidlapse -m shoot -d 0.014 -i 5 -o ./timelapse_photos
 ```
-# for Building lapse out of images shot:
 
+#### 2. **Build Lapse Mode (BL)**  
+Converts captured images into a timelapse video. Use the following flags:  
+- `-ip`: Input folder containing images from Shoot Mode.  
+- `-op`: Output location for the timelapse video.  
+- `-t`: (y or n) Add a timestamp to the video.  
+- `-c`: Timestamp color (`white` or `black`).  
+- `-f`: Timestamp format (`date`, `time`, or `datetime`).  
+
+Example:  
 ```bash
-./voidlapse -m build -ip ./timelapse_photos -op ./timelapse_photos -c white -f date -t y
+./voidlapse -m build -ip ./timelapse_photos -op ./timelapse.mp4 -c white -f date -t y
 ```
 
-# for adding timestamp on existing video:
-```bash 
+#### 3. **Add Clock Mode (AC)**  
+Adds timestamps to an existing video based on metadata. Use the following flags:  
+- `-it`: Input video file.  
+- `-ot`: Output video file with timestamps.  
+- `-c`: Timestamp color (`white` or `black`).  
+- `-f`: Timestamp format (`date`, `time`, or `datetime`).  
+
+Example:  
+```bash
 ./voidlapse -m timestamp -it ./timelapse_photos/timelapse.mp4 -ot ./timelapse_photos/ts_timelapse.mp4 -c white -f date
 ```
+
+---
+
+## License  
+Void Lapse is open-source and available under the MIT License.
+
+---
