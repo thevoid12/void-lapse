@@ -1,12 +1,15 @@
 package timestamp
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,12 +24,13 @@ import (
 // Output file: the file name(include path) for the output time stamp
 // textColor : white or black color timestamp
 // timestampType: I support 3 types of timestamp type datetime,date (date only),time (time only)
+
 func AddTimeStamp(inputFile, outputFile, textColor, timestampType string) {
 	// Get video creation time
 	videoStartTime, err := getVideoCreationTime(inputFile)
 	if err != nil {
 		log.Printf("Warning: Could not get video creation time: %v", err)
-		videoStartTime = time.Now() // Fallback to current time
+		videoStartTime = time.Now()
 	}
 
 	// Create temporary directory for frames
@@ -36,12 +40,21 @@ func AddTimeStamp(inputFile, outputFile, textColor, timestampType string) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Extract frames with PTS metadata
+	// Get original video info
+	probe, err := ffmpeg.Probe(inputFile)
+	if err != nil {
+		log.Fatalf("Failed to probe video: %v", err)
+	}
+
+	// Extract original video parameters
+	frameRate, _, _ := extractVideoParams(probe)
+
+	// Extract frames preserving original frame rate and format
 	err = ffmpeg.Input(inputFile).
-		Output(filepath.Join(tmpDir, "frame-%d.png"),
+		Output(filepath.Join(tmpDir, "frame-%08d.png"),
 			ffmpeg.KwArgs{
-				"vf":           "fps=30,showinfo", // showinfo filter will print PTS info
-				"frame_pts":    "1",
+				"vsync":        "0", // Maintain exact frame timing
+				"frame_pts":    "1", // Preserve presentation timestamps
 				"start_number": "0",
 			}).
 		OverWriteOutput().
@@ -56,82 +69,154 @@ func AddTimeStamp(inputFile, outputFile, textColor, timestampType string) {
 		log.Fatalf("Failed to list frames: %v", err)
 	}
 
+	// Sort frames numerically
+	sort.Slice(files, func(i, j int) bool {
+		numI := extractFrameNumber(files[i])
+		numJ := extractFrameNumber(files[j])
+		return numI < numJ
+	})
+
 	textCol := getColor(textColor)
 
-	// Get frame rate from video
-	probe, err := ffmpeg.Probe(inputFile)
-	if err != nil {
-		log.Fatalf("Failed to probe video: %v", err)
-	}
-
-	// Extract frame rate from probe data
-	var frameRate float64 = 30 // default fallback
-	if strings.Contains(probe, "r_frame_rate") {
-		lines := strings.Split(probe, "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "r_frame_rate") {
-				rateStr := strings.Split(line, ": ")[1]
-				rateStr = strings.Trim(rateStr, "\"")
-				nums := strings.Split(rateStr, "/")
-				if len(nums) == 2 {
-					num, _ := strconv.ParseFloat(nums[0], 64)
-					den, _ := strconv.ParseFloat(nums[1], 64)
-					if den != 0 {
-						frameRate = num / den
-					}
-				}
-			}
-		}
-	}
-
+	// Process each frame
 	for i, file := range files {
-		// Read frame
 		dc, err := gg.LoadImage(file)
 		if err != nil {
 			log.Fatalf("Failed to load frame %s: %v", file, err)
 		}
 
-		// Calculate frame time based on frame number and frame rate
 		frameTime := videoStartTime.Add(time.Duration(float64(i) * float64(time.Second) / frameRate))
 		timestamp := getTimestampFormat(frameTime, timestampType)
 
-		// Process frame
 		processedFrame, err := processFrame(dc, textCol, timestamp)
 		if err != nil {
 			log.Fatalf("Failed to process frame %s: %v", file, err)
 		}
 
-		// Save processed frame
-		outFile := filepath.Join(tmpDir, fmt.Sprintf("processed-%d.png", i))
+		outFile := filepath.Join(tmpDir, fmt.Sprintf("processed-%08d.png", i))
 		err = gg.SavePNG(outFile, processedFrame)
 		if err != nil {
 			log.Fatalf("Failed to save processed frame: %v", err)
 		}
 
-		// Show progress
 		if i%30 == 0 {
 			fmt.Printf("Processed %d frames...\n", i)
 		}
 	}
 
+	// Recreate video with original parameters
+	// err = ffmpeg.Input(filepath.Join(tmpDir, "processed-%08d.png"),
+	// 	ffmpeg.KwArgs{
+	// 		"framerate": strconv.FormatFloat(frameRate, 'f', -1, 64),
+	// 		"vsync":     "0",
+	// 	}).
+	// 	Output(outputFile, ffmpeg.KwArgs{
+	// 		"c:v":     codec,  // Use original codec
+	// 		"pix_fmt": pixFmt, // Use original pixel format
+	// 		"vsync":   "0",    // Maintain exact frame timing
+	// 		"preset":  "medium",
+	// 		"crf":     "23",
+	// 	}).
+	// 	OverWriteOutput().
+	// 	Run()
+	// if err != nil {
+	// 	log.Fatalf("Failed to create output video: %v", err)
+	// }
 	// Combine frames into video
-	err = ffmpeg.Input(filepath.Join(tmpDir, "processed-%d.png"),
-		ffmpeg.KwArgs{
-			"framerate":    strconv.FormatFloat(frameRate, 'f', -1, 64),
-			"start_number": "0",
-		}).
-		Output(outputFile, ffmpeg.KwArgs{
-			"c:v":     "libx264",
-			"pix_fmt": "yuv420p",
-			"preset":  "medium",
-			"crf":     "23",
-		}).
-		OverWriteOutput().
-		Run()
-	if err != nil {
-		log.Fatalf("Failed to create output video: %v", err)
+	// err = ffmpeg.Input(filepath.Join(tmpDir, "processed-%08d.png"),
+	// 	ffmpeg.KwArgs{
+	// 		"framerate":    strconv.FormatFloat(frameRate, 'f', -1, 64),
+	// 		"start_number": "0",
+	// 	}).
+	// 	Output(outputFile, ffmpeg.KwArgs{
+	// 		"c:v":     codec,
+	// 		"pix_fmt": pixFmt,
+	// 		"preset":  "medium",
+	// 		"crf":     "23",
+	// 	}).
+	// 	OverWriteOutput().
+	// 	Run()
+	// if err != nil {
+	// 	log.Fatalf("Failed to create output video: %v", err)
+	// }
+
+	// Verify frames exist before running ffmpeg
+	processedFiles, err := filepath.Glob(filepath.Join(tmpDir, "processed-*.png"))
+	if err != nil || len(processedFiles) == 0 {
+		log.Fatalf("No processed frames found in %s", tmpDir)
 	}
+	log.Printf("Found %d processed frames", len(processedFiles))
+
+	command := exec.Command(
+		"ffmpeg",
+		"-framerate", strconv.FormatFloat(frameRate, 'f', -1, 64),
+		"-i", filepath.Join(tmpDir, "processed-%08d.png"),
+		"-c:v", "libx264",
+		"-pix_fmt", "yuv420p",
+		"-preset", "ultrafast",
+		"-y", // Force overwrite
+		outputFile,
+	)
+
+	// Capture command output
+	var stdout, stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+
+	// Log the command being executed
+	log.Printf("Executing command: %s", command.String())
+
+	// Run the command and wait for completion
+	err = command.Run()
+	if err != nil {
+		log.Printf("FFmpeg stdout: %s", stdout.String())
+		log.Printf("FFmpeg stderr: %s", stderr.String())
+		log.Fatalf("Failed to create video: %v", err)
+	}
+
+	command.Wait()
+	// Verify the output file was created
+	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		log.Fatalf("Output file was not created at: %s", outputFile)
+	}
+
 }
+
+func extractVideoParams(probe string) (float64, string, string) {
+	var frameRate float64 = 30 // default fallback
+	codec := "libx264"         // default fallback
+	pixFmt := "yuv420p"        // default fallback
+
+	lines := strings.Split(probe, "\n")
+	for _, line := range lines {
+		// Extract frame rate
+		if strings.Contains(line, "r_frame_rate") {
+			rateStr := strings.Split(line, ": ")[1]
+			rateStr = strings.Trim(rateStr, "\"")
+			nums := strings.Split(rateStr, "/")
+			if len(nums) == 2 {
+				num, _ := strconv.ParseFloat(nums[0], 64)
+				den, _ := strconv.ParseFloat(nums[1], 64)
+				if den != 0 {
+					frameRate = num / den
+				}
+			}
+		}
+		// Extract codec
+		if strings.Contains(line, "codec_name") {
+			codec = strings.Split(line, ": ")[1]
+			codec = strings.Trim(codec, "\"")
+		}
+		// Extract pixel format
+		if strings.Contains(line, "pix_fmt") {
+			pixFmt = strings.Split(line, ": ")[1]
+			pixFmt = strings.Trim(pixFmt, "\"")
+		}
+	}
+	return frameRate, codec, pixFmt
+}
+
+// [Rest of the helper functions remain the same]
 
 func getColor(colorName string) color.Color {
 	switch colorName {
@@ -228,4 +313,16 @@ func processFrame(frame image.Image, textColor color.Color, timestamp string) (i
 	dc.DrawString(timestamp, textX, textY)
 
 	return dc.Image(), nil
+}
+
+func extractFrameNumber(filename string) int {
+	// Extract the number between "frame-" and ".png"
+	base := filepath.Base(filename)
+	numStr := strings.TrimPrefix(base, "frame-")
+	numStr = strings.TrimSuffix(numStr, ".png")
+	num, err := strconv.Atoi(numStr)
+	if err != nil {
+		return -1
+	}
+	return num
 }
