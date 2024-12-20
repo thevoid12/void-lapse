@@ -59,7 +59,7 @@ func createTimelapse(outputPath string, inputPath string) string {
 	return videoName
 }
 
-func BuildLapse(outputPath, inputPath, textColor, timestampFormat, wantTimestamp string) {
+func BuildLapse(inputPath, outputPath, textColor, timestampFormat, wantTimestamp string) {
 
 	// Check if required flags are provided
 	if inputPath == "" {
