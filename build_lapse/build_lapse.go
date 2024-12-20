@@ -1,21 +1,23 @@
-package main
+package build_lapse
 
 import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"voidlapse/timestamp"
+
 	"time"
 )
 
-func createTimelapse(outputPath string, inputPath string) {
+func createTimelapse(outputPath string, inputPath string) string {
 
 	err := os.MkdirAll(outputPath, 0755)
 	if err != nil {
-		fmt.Printf("Error creating output directory: %v\n", err)
-		return
+		log.Printf("Error creating output directory: %v\n", err)
 	}
 
 	layout := "02-01-2006-15:04"
@@ -44,8 +46,8 @@ func createTimelapse(outputPath string, inputPath string) {
 	)
 	err = command.Start()
 	if err != nil {
-		fmt.Printf("Error starting command: %v\n", err)
-		return
+		log.Printf("Error starting command: %v\n", err)
+
 	}
 
 	startTime := time.Now()
@@ -53,18 +55,11 @@ func createTimelapse(outputPath string, inputPath string) {
 	endTime := time.Since(startTime)
 	fmt.Printf("Timelapse created successfully with videoname: %s. elapsed Time: %s\n", videoName, endTime)
 	fmt.Println("*********************************************************************************")
+
+	return videoName
 }
 
-func main() {
-	// Parse command line arguments
-	var (
-		outputPath string
-		inputPath  string
-	)
-
-	flag.StringVar(&inputPath, "i", "", "Location of folder where this image files are located")
-	flag.StringVar(&outputPath, "o", "", "Location of folder where this image files will be stored")
-	flag.Parse()
+func BuildLapse(outputPath, inputPath, textColor, timestampFormat, wantTimestamp string) {
 
 	// Check if required flags are provided
 	if inputPath == "" {
@@ -99,5 +94,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	createTimelapse(absOutputPath, absInputPath)
+	videoName := createTimelapse(absOutputPath, absInputPath)
+	if wantTimestamp == "y" || wantTimestamp == "Y" {
+		fmt.Println()
+		fmt.Println("*********************************************************************************")
+		st := time.Now()
+
+		fmt.Println("Adding timestamp to your video startTime: %s", st)
+		timestamp.AddTimeStamp(filepath.Join(absOutputPath, videoName), filepath.Join(absOutputPath, "ts_"+videoName), textColor, timestampFormat)
+		fmt.Println("Video processing timestamp completed successfully. Time Elapsed:%s", time.Since(st))
+		fmt.Println("*********************************************************************************")
+	}
 }

@@ -1,4 +1,4 @@
-package main
+package shoot_lapse
 
 import (
 	"flag"
@@ -111,13 +111,7 @@ func captureScreenshots(durationHours float64, intervalSeconds int, outputPath s
 	fmt.Printf("\nCapture completed. %d images saved to: %s\n", finalImages, outputPath)
 }
 
-func main() {
-	// Parse command line arguments
-	var (
-		durationHours   float64
-		intervalSeconds int
-		outputPath      string
-	)
+func ShootLapse(durationHours float64, intervalSeconds int, outputPath string) {
 
 	flag.Float64Var(&durationHours, "d", 0.0, "Duration in hours to capture screenshots")
 	flag.IntVar(&intervalSeconds, "i", 0, "Interval in seconds between screenshots")
