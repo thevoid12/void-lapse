@@ -113,12 +113,6 @@ func captureScreenshots(durationHours float64, intervalSeconds int, outputPath s
 
 func ShootLapse(durationHours float64, intervalSeconds int, outputPath string) {
 
-	flag.Float64Var(&durationHours, "d", 0.0, "Duration in hours to capture screenshots")
-	flag.IntVar(&intervalSeconds, "i", 0, "Interval in seconds between screenshots")
-	flag.StringVar(&outputPath, "o", "", "Output directory path for screenshots")
-
-	flag.Parse()
-
 	// Check if required flags are provided
 	if durationHours == 0.0 || intervalSeconds == 0 || outputPath == "" {
 		fmt.Println("All flags are required:")
