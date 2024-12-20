@@ -106,6 +106,6 @@ Example:
 ---
 
 ## License  
-Void Lapse is open-source and available under the MIT License.
+I dont care about license.go play with it:)
 
 ---
