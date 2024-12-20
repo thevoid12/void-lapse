@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
-
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -97,7 +95,7 @@ func captureScreenshots(durationHours float64, intervalSeconds int, outputPath s
 	command.Wait()
 
 	// Count final images
-	files, err := ioutil.ReadDir(outputPath)
+	files, err := os.ReadDir(outputPath)
 	if err != nil {
 		fmt.Printf("\nError reading directory: %v\n", err)
 		return
