@@ -79,5 +79,5 @@ go build voidlapse
 
 # for adding timestamp on existing video:
 ```bash 
-./voidlapse -m timestamp -i ./timelapse_photos/timelapse.mp4 -op ./timelapse_photos/ts_timelapse.mp4 -c white -f date
+./voidlapse -m timestamp -it ./timelapse_photos/timelapse.mp4 -ot ./timelapse_photos/ts_timelapse.mp4 -c white -f date
 ```

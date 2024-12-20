@@ -12,6 +12,8 @@ import (
 
 func main() {
 	var (
+		inputDir        string
+		outputDir       string
 		inputFile       string
 		outputFile      string
 		textColor       string
@@ -26,12 +28,12 @@ func main() {
 	flag.Float64Var(&durationHours, "d", 0.0, "SL:Duration in hours to capture screenshots(required)")
 	flag.IntVar(&intervalSeconds, "i", 0, "SL:Interval in seconds between screenshots(required)")
 	flag.StringVar(&shootoutputPath, "o", "", "SL:Output directory path for screenshots to be saved(required)")
-	flag.StringVar(&inputFile, "ip", "", "BL:Location of folder where this image files are located(requried)")
-	flag.StringVar(&outputFile, "op", "", "BL:Location of folder where this image files will be stored (optional)")
+	flag.StringVar(&inputDir, "ip", "", "BL:Location of folder where this image files are located(requried)")
+	flag.StringVar(&outputDir, "op", "", "BL:Location of folder where this image files will be stored (optional)")
 	flag.StringVar(&wantTimestamp, "t", "n", "BL:Do you want timestamp(optional) type y")
 
-	flag.StringVar(&inputFile, "i", "", "AC:input video file")
-	flag.StringVar(&outputFile, "o", "", "AC:output video file")
+	flag.StringVar(&inputFile, "it", "", "AC:input video file")
+	flag.StringVar(&outputFile, "ot", "", "AC:output video file")
 	flag.StringVar(&textColor, "c", "white", "AC:text color (white or black)")
 	flag.StringVar(&timestampFormat, "f", "datetime", "AC:timestamp format (datetime, date, time)")
 	flag.StringVar(&mode, "m", "build", "mode (build or shoot or just add clock)")
@@ -39,7 +41,7 @@ func main() {
 
 	switch mode {
 	case "build":
-		build_lapse.BuildLapse(inputFile, outputFile, textColor, timestampFormat, wantTimestamp)
+		build_lapse.BuildLapse(inputDir, outputDir, textColor, timestampFormat, wantTimestamp)
 	case "shoot":
 		shoot_lapse.ShootLapse(durationHours, intervalSeconds, shootoutputPath)
 	case "timestamp":
