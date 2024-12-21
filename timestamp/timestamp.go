@@ -19,19 +19,18 @@ import (
 	"golang.org/x/image/font/basicfont"
 )
 
+type frameInfo struct {
+	path      string
+	timestamp time.Time
+}
+
 // AddTimestamp module adds timestamp to the video provided picking each frame's metadata and creating file
 // inputFile: the origial video file
 // Output file: the file name(include path) for the output time stamp
 // textColor : white or black color timestamp
 // timestampType: I support 3 types of timestamp type datetime,date (date only),time (time only)
-
 func AddTimeStamp(inputFile, outputFile, textColor, timestampType string) {
 	// Get video creation time
-	videoStartTime, err := getVideoCreationTime(inputFile)
-	if err != nil {
-		log.Printf("Warning: Could not get video creation time: %v", err)
-		videoStartTime = time.Now()
-	}
 
 	// Create temporary directory for frames
 	tmpDir, err := os.MkdirTemp("", "video-frames-")
@@ -56,11 +55,18 @@ func AddTimeStamp(inputFile, outputFile, textColor, timestampType string) {
 				"vsync":        "0", // Maintain exact frame timing
 				"frame_pts":    "1", // Preserve presentation timestamps
 				"start_number": "0",
+				"vf":           "drawtext=text='%{pts\\:hms}':x=0:y=0:fontsize=1:fontcolor=white@0.0",
 			}).
 		OverWriteOutput().
 		Run()
 	if err != nil {
 		log.Fatalf("Failed to extract frames: %v", err)
+	}
+
+	// Get frame timestamps using ffprobe
+	frames, err := getFrameTimestamps(inputFile)
+	if err != nil {
+		log.Fatalf("Failed to get frame timestamps: %v", err)
 	}
 
 	// Process frames
@@ -85,8 +91,7 @@ func AddTimeStamp(inputFile, outputFile, textColor, timestampType string) {
 			log.Fatalf("Failed to load frame %s: %v", file, err)
 		}
 
-		frameTime := videoStartTime.Add(time.Duration(float64(i) * float64(time.Second) / frameRate))
-		timestamp := getTimestampFormat(frameTime, timestampType)
+		timestamp := getTimestampFormat(frames[i].timestamp, timestampType)
 
 		processedFrame, err := processFrame(dc, textCol, timestamp)
 		if err != nil {
@@ -325,4 +330,46 @@ func extractFrameNumber(filename string) int {
 		return -1
 	}
 	return num
+}
+
+func getFrameTimestamps(inputFile string) ([]frameInfo, error) {
+	// Get video start time
+	videoStartTime, err := getVideoCreationTime(inputFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get frame timestamps using ffprobe
+	cmd := exec.Command("ffprobe",
+		"-v", "quiet",
+		"-select_streams", "v:0",
+		"-show_entries", "frame=pts_time",
+		"-of", "csv=p=0",
+		inputFile)
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to get frame timestamps: %v", err)
+	}
+
+	// Parse timestamps
+	var frames []frameInfo
+	for _, line := range strings.Split(stdout.String(), "\n") {
+		if line == "" {
+			continue
+		}
+		ptsTime, err := strconv.ParseFloat(line, 64)
+		if err != nil {
+			continue
+		}
+
+		// Calculate actual timestamp for this frame
+		frameTime := videoStartTime.Add(time.Duration(ptsTime * float64(time.Second)))
+		frames = append(frames, frameInfo{
+			timestamp: frameTime,
+		})
+	}
+
+	return frames, nil
 }

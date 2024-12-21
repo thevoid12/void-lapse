@@ -3,6 +3,7 @@ package shoot_lapse
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,10 +37,18 @@ func captureScreenshots(durationHours float64, intervalSeconds int, outputPath s
 		"!",
 		fmt.Sprintf("video/x-raw,framerate=1/%d", intervalSeconds),
 		"!",
+		"taginject",
+		"tags=datetime="+time.Now().Format("2006-01-02T15:04:05"),
+		"!",
 		"jpegenc",
 		"!",
 		"multifilesink",
-		fmt.Sprintf("location=%s/image_%%05d.jpg", outputPath))
+		fmt.Sprintf("location=%s/image_%%05d.jpg", outputPath),
+	)
+
+	// Start the command
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
 
 	// Start the gstreamer process
 	// command.Start() runs the external process in a separate thread of execution.
@@ -49,6 +58,11 @@ func captureScreenshots(durationHours float64, intervalSeconds int, outputPath s
 	if err != nil {
 		fmt.Printf("Error starting command: %v\n", err)
 		return
+	}
+
+	output, err := command.CombinedOutput()
+	if err != nil {
+		log.Fatalf("Pipeline error: %v, output: %s", err, string(output))
 	}
 
 	// Calculate end time

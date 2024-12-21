@@ -101,7 +101,7 @@ func BuildLapse(inputPath, outputPath, textColor, timestampFormat, wantTimestamp
 		st := time.Now()
 
 		fmt.Println("Adding timestamp to your video startTime: %s", st)
-		timestamp.AddTimeStamp(filepath.Join(absOutputPath, videoName), filepath.Join(absOutputPath, "ts_"+videoName), textColor, timestampFormat)
+		timestamp.AddTimeStamp(absInputPath, filepath.Join(absOutputPath, "ts_"+videoName), textColor, timestampFormat)
 		fmt.Println("Video processing timestamp completed successfully. Time Elapsed:%s", time.Since(st))
 		fmt.Println("*********************************************************************************")
 	}

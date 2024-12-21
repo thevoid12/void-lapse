@@ -32,8 +32,8 @@ func main() {
 	flag.StringVar(&outputDir, "op", "", "BL:Location of folder where this image files will be stored (optional)")
 	flag.StringVar(&wantTimestamp, "t", "n", "BL:Do you want timestamp(optional) type y")
 
-	flag.StringVar(&inputFile, "it", "", "AC:input video file")
-	flag.StringVar(&outputFile, "ot", "", "AC:output video file")
+	flag.StringVar(&inputFile, "it", "", "AC:input shot image files")
+	flag.StringVar(&outputFile, "ot", "", "AC:output video file's folder")
 	flag.StringVar(&textColor, "c", "white", "AC:text color (white or black)")
 	flag.StringVar(&timestampFormat, "f", "datetime", "AC:timestamp format (datetime, date, time)")
 	flag.StringVar(&mode, "m", "build", "mode (build or shoot or just add clock)")
