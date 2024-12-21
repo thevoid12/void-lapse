@@ -152,7 +152,14 @@ sudo systemctl restart voidlapse
 ```bash
 sudo systemctl status voidlapse
 ```
-you can do the same for build as well as timestamp mode
+you can do the same for build as well as timestamp mode like
+sudo systemctl status voidlapse-shoot
+sudo systemctl status voidlapse-build
+sudo systemctl status voidlapse-timestamp
+
+after everychange run 
+sudo systemctl daemon-reload
+then start the service
 ---
 
 ## License  
