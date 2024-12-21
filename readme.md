@@ -103,6 +103,56 @@ Example:
 ./voidlapse -m timestamp -it ./timelapse_photos/timelapse.mp4 -ot ./timelapse_photos/ts_timelapse.mp4 -c white -f date
 ```
 
+## I have used systemD timer to run the code for session management
+- you can use tools like tmux as well
+```bash
+sudo nano /etc/systemd/system/voidlapse.service
+```
+
+```bash
+[Unit]
+Description=Voidlapse Service
+After=network.target
+
+[Service]
+ExecStart=/path/to/voidlapse -m build -ip ./output -op ./output -c white -f datetime -t y
+Restart=on-failure
+User=pi
+WorkingDirectory=/path/to/working/directory
+
+[Install]
+WantedBy=multi-user.target
+
+```
+#### reload:
+```bash
+sudo systemctl daemon-reload
+
+```
+#### enable the servcie to run:
+```bash
+sudo systemctl enable voidlapse
+```
+#### Start the service:
+```bash
+sudo systemctl start voidlapse
+
+```
+## stopping the service in the middle:
+```bash
+sudo systemctl stop voidlapse
+```
+
+# restarting the service
+```bash
+sudo systemctl restart voidlapse
+
+```
+# to check if the lapse is in progress or not
+```bash
+sudo systemctl status voidlapse
+```
+you can do the same for build as well as timestamp mode
 ---
 
 ## License  
