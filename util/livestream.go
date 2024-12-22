@@ -26,11 +26,10 @@ func (s *Stream) startCapture() {
 			"-f", "v4l2",
 			"-video_size", "1280x720", // HD resolution
 			"-i", "/dev/video0", // Explicitly use video0
-			"-f", "mjpeg",
-			"-frames:v", "0", // Continuous stream
-			"-r", "24", // 24 fps
+			"-vf", "format=yuvj422p", // Fix deprecated pixel format warning
+			"-f", "mjpeg", // Output format
 			"-q:v", "2", // High quality (1-31, lower is better)
-			"-update", "1", // Enable update mode
+			"-r", "24", // 24 fps
 			"-", // Output to pipe
 		)
 
@@ -158,42 +157,24 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			_, err = w.Write([]byte("\r\n"))
 			if err != nil {
-				log.Printf("Error writing frame ending: %v", err)
+				log.Printf("Error writing frame footer: %v", err)
 				return
 			}
 
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
-			}
-
 			framesSent++
-			if framesSent%24 == 0 { // Log every second (24 frames)
+			if framesSent%24 == 0 {
 				elapsed := time.Since(startTime).Seconds()
 				fps := float64(framesSent) / elapsed
-				log.Printf("Streaming to client at %.2f fps", fps)
+				log.Printf("Streaming frames at %.2f fps", fps)
 			}
 		}
-		log.Println("Stream ended")
-		return
 	}
-
-	http.NotFound(w, r)
 }
 
 func main() {
-	// Check if video0 exists
-	if _, err := exec.Command("ls", "/dev/video0").Output(); err != nil {
-		log.Fatal("No video device found at /dev/video0")
-	}
-
-	log.Println("Initializing stream...")
 	stream := newStream()
-
-	log.Println("Starting capture routine...")
 	go stream.startCapture()
 
-	time.Sleep(2 * time.Second)
-
-	log.Println("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", stream))
+	http.Handle("/", stream)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
