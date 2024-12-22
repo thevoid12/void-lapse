@@ -19,31 +19,19 @@ func newStream() *Stream {
 }
 
 func (s *Stream) startCapture() {
-	// Using raspivid for Raspberry Pi camera
-	// Convert raw h264 to MJPEG using ffmpeg
-	cmd := exec.Command("raspivid", "-t", "0", "-o", "-", "-w", "640", "-h", "480", "-fps", "24", "-b", "1000000")
+	// Using ffmpeg with v4l2 input for USB webcam
+	// Typically your webcam will be at /dev/video0
 	ffmpeg := exec.Command("ffmpeg",
-		"-i", "-",
-		"-f", "mjpeg",
-		"-framerate", "24",
-		"-video_size", "640x480",
-		"-c:v", "mjpeg",
-		"-q:v", "5",
-		"-",
+		"-f", "v4l2", // Use V4L2 input
+		"-framerate", "24", // Input framerate
+		"-video_size", "640x480", // Input size
+		"-i", "/dev/video0", // Input device
+		"-f", "mjpeg", // Output format
+		"-q:v", "5", // Quality (1-31, 1 is highest)
+		"-", // Output to stdout
 	)
 
-	var err error
-	ffmpeg.Stdin, err = cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	ffmpegOutput, err := ffmpeg.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = cmd.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
