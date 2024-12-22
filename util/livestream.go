@@ -21,18 +21,17 @@ func newStream() *Stream {
 func (s *Stream) startCapture() {
 	log.Println("Starting camera capture...")
 
+	// Simplified ffmpeg command without assuming input format
 	ffmpeg := exec.Command("ffmpeg",
 		"-f", "v4l2",
-		"-framerate", "24",
-		"-video_size", "640x480",
-		"-input_format", "mjpeg",
 		"-i", "/dev/video0",
 		"-f", "mjpeg",
-		"-q:v", "5",
-		"-", // This dash needs to be part of the args slice
+		"-frames:v", "0", // Unlimited frames
+		"-r", "24", // Output framerate
+		"-q:v", "8", // Higher quality value (1-31, lower is better)
+		"-",
 	)
 
-	// Log the full command we're trying to execute
 	log.Printf("Executing command: %v", ffmpeg.String())
 
 	ffmpegOutput, err := ffmpeg.StdoutPipe()
@@ -40,7 +39,6 @@ func (s *Stream) startCapture() {
 		log.Fatalf("Failed to create stdout pipe: %v", err)
 	}
 
-	// Capture stderr to see ffmpeg errors
 	ffmpeg.Stderr = log.Writer()
 
 	err = ffmpeg.Start()
@@ -50,7 +48,6 @@ func (s *Stream) startCapture() {
 
 	log.Println("FFmpeg started successfully")
 
-	// Read MJPEG frames
 	buffer := make([]byte, 1024*1024)
 	frameCount := 0
 	startTime := time.Now()
@@ -150,7 +147,6 @@ func main() {
 	log.Println("Starting capture routine...")
 	go stream.startCapture()
 
-	// Give some time for camera initialization
 	time.Sleep(2 * time.Second)
 
 	log.Println("Server starting on :8080")
