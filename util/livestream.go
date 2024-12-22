@@ -14,66 +14,78 @@ type Stream struct {
 
 func newStream() *Stream {
 	return &Stream{
-		frames: make(chan []byte, 30),
+		frames: make(chan []byte, 24), // Buffer for 1 second at 24fps
 	}
 }
 
 func (s *Stream) startCapture() {
-	log.Println("Starting camera capture...")
-
-	// Simplified ffmpeg command without assuming input format
-	ffmpeg := exec.Command("ffmpeg",
-		"-f", "v4l2",
-		"-i", "/dev/video0",
-		"-f", "mjpeg",
-		"-frames:v", "0", // Unlimited frames
-		"-r", "24", // Output framerate
-		"-q:v", "8", // Higher quality value (1-31, lower is better)
-		"-",
-	)
-
-	log.Printf("Executing command: %v", ffmpeg.String())
-
-	ffmpegOutput, err := ffmpeg.StdoutPipe()
-	if err != nil {
-		log.Fatalf("Failed to create stdout pipe: %v", err)
-	}
-
-	ffmpeg.Stderr = log.Writer()
-
-	err = ffmpeg.Start()
-	if err != nil {
-		log.Fatalf("Failed to start ffmpeg: %v", err)
-	}
-
-	log.Println("FFmpeg started successfully")
-
-	buffer := make([]byte, 1024*1024)
-	frameCount := 0
-	startTime := time.Now()
+	log.Println("Starting camera capture from /dev/video0...")
 
 	for {
-		n, err := ffmpegOutput.Read(buffer)
+		ffmpeg := exec.Command("ffmpeg",
+			"-f", "v4l2",
+			"-video_size", "1280x720", // HD resolution
+			"-i", "/dev/video0", // Explicitly use video0
+			"-f", "mjpeg",
+			"-frames:v", "0", // Continuous stream
+			"-r", "24", // 24 fps
+			"-q:v", "2", // High quality (1-31, lower is better)
+			"-update", "1", // Enable update mode
+			"-", // Output to pipe
+		)
+
+		log.Printf("Executing command: %v", ffmpeg.String())
+
+		ffmpegOutput, err := ffmpeg.StdoutPipe()
 		if err != nil {
-			log.Printf("Error reading frame: %v", err)
+			log.Printf("Failed to create stdout pipe: %v", err)
+			time.Sleep(time.Second)
 			continue
 		}
 
-		frameCount++
-		if frameCount%100 == 0 {
-			elapsed := time.Since(startTime).Seconds()
-			fps := float64(frameCount) / elapsed
-			log.Printf("Capturing frames at %.2f fps", fps)
+		ffmpeg.Stderr = log.Writer()
+
+		err = ffmpeg.Start()
+		if err != nil {
+			log.Printf("Failed to start ffmpeg: %v", err)
+			time.Sleep(time.Second)
+			continue
 		}
 
-		frame := make([]byte, n)
-		copy(frame, buffer[:n])
+		log.Println("FFmpeg started successfully")
 
-		select {
-		case s.frames <- frame:
-		default:
-			log.Println("Frame dropped - buffer full")
+		buffer := make([]byte, 2*1024*1024) // 2MB buffer for HD frames
+		frameCount := 0
+		startTime := time.Now()
+
+		for {
+			n, err := ffmpegOutput.Read(buffer)
+			if err != nil {
+				log.Printf("Error reading frame: %v", err)
+				break
+			}
+
+			frameCount++
+			if frameCount%24 == 0 { // Log every second (24 frames)
+				elapsed := time.Since(startTime).Seconds()
+				fps := float64(frameCount) / elapsed
+				log.Printf("Capturing frames at %.2f fps", fps)
+			}
+
+			frame := make([]byte, n)
+			copy(frame, buffer[:n])
+
+			select {
+			case s.frames <- frame:
+			default:
+				log.Println("Frame dropped - buffer full")
+			}
 		}
+
+		ffmpeg.Process.Kill()
+		ffmpeg.Wait()
+		log.Println("FFmpeg process ended, restarting in 1 second...")
+		time.Sleep(time.Second)
 	}
 }
 
@@ -87,10 +99,38 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Webcam Stream</title>
+    <title>24FPS Webcam Stream</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .stream-container {
+            max-width: 1280px;
+            max-height: 720px;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .stream-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+    </style>
 </head>
-<body style="margin:0;padding:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
-    <img src="/stream" style="max-width:100%;max-height:100vh;object-fit:contain;">
+<body>
+    <div class="stream-container">
+        <img src="/stream" alt="Live Stream">
+    </div>
 </body>
 </html>`)
 		return
@@ -127,7 +167,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			framesSent++
-			if framesSent%100 == 0 {
+			if framesSent%24 == 0 { // Log every second (24 frames)
 				elapsed := time.Since(startTime).Seconds()
 				fps := float64(framesSent) / elapsed
 				log.Printf("Streaming to client at %.2f fps", fps)
@@ -141,6 +181,11 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Check if video0 exists
+	if _, err := exec.Command("ls", "/dev/video0").Output(); err != nil {
+		log.Fatal("No video device found at /dev/video0")
+	}
+
 	log.Println("Initializing stream...")
 	stream := newStream()
 
