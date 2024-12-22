@@ -14,35 +14,47 @@ type Stream struct {
 
 func newStream() *Stream {
 	return &Stream{
-		frames: make(chan []byte, 30), // Buffer up to 30 frames
+		frames: make(chan []byte, 30),
 	}
 }
 
 func (s *Stream) startCapture() {
-	// Using ffmpeg with v4l2 input for USB webcam
-	// Typically your webcam will be at /dev/video0
+	log.Println("Starting camera capture...")
+
 	ffmpeg := exec.Command("ffmpeg",
-		"-f", "v4l2", // Use V4L2 input
-		"-framerate", "24", // Input framerate
-		"-video_size", "640x480", // Input size
-		"-i", "/dev/video0", // Input device
-		"-f", "mjpeg", // Output format
-		"-q:v", "5", // Quality (1-31, 1 is highest)
-		"-", // Output to stdout
+		"-f", "v4l2",
+		"-framerate", "24",
+		"-video_size", "640x480",
+		"-input_format", "mjpeg",
+		"-i", "/dev/video0",
+		"-f", "mjpeg",
+		"-q:v", "5",
+		"-", // This dash needs to be part of the args slice
 	)
+
+	// Log the full command we're trying to execute
+	log.Printf("Executing command: %v", ffmpeg.String())
 
 	ffmpegOutput, err := ffmpeg.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create stdout pipe: %v", err)
 	}
+
+	// Capture stderr to see ffmpeg errors
+	ffmpeg.Stderr = log.Writer()
 
 	err = ffmpeg.Start()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to start ffmpeg: %v", err)
 	}
 
+	log.Println("FFmpeg started successfully")
+
 	// Read MJPEG frames
-	buffer := make([]byte, 1024*1024) // 1MB buffer
+	buffer := make([]byte, 1024*1024)
+	frameCount := 0
+	startTime := time.Now()
+
 	for {
 		n, err := ffmpegOutput.Read(buffer)
 		if err != nil {
@@ -50,26 +62,36 @@ func (s *Stream) startCapture() {
 			continue
 		}
 
-		// Copy frame to prevent buffer reuse issues
+		frameCount++
+		if frameCount%100 == 0 {
+			elapsed := time.Since(startTime).Seconds()
+			fps := float64(frameCount) / elapsed
+			log.Printf("Capturing frames at %.2f fps", fps)
+		}
+
 		frame := make([]byte, n)
 		copy(frame, buffer[:n])
 
-		// Try to send frame, drop if channel is full
 		select {
 		case s.frames <- frame:
 		default:
-			// Drop frame if channel is full
+			log.Println("Frame dropped - buffer full")
 		}
 	}
 }
 
 func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received request for: %s", r.URL.Path)
+
 	if r.URL.Path == "/" {
-		// Serve the HTML page
+		log.Println("Serving HTML page")
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprint(w, `
 <!DOCTYPE html>
 <html>
+<head>
+    <title>Webcam Stream</title>
+</head>
 <body style="margin:0;padding:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
     <img src="/stream" style="max-width:100%;max-height:100vh;object-fit:contain;">
 </body>
@@ -78,25 +100,43 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Path == "/stream" {
-		// Set up MJPEG stream
+		log.Println("Starting stream response")
 		w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+
+		framesSent := 0
+		startTime := time.Now()
+
 		for frame := range s.frames {
 			_, err := w.Write([]byte("--frame\r\nContent-Type: image/jpeg\r\n\r\n"))
 			if err != nil {
+				log.Printf("Error writing frame boundary: %v", err)
 				return
 			}
+
 			_, err = w.Write(frame)
 			if err != nil {
+				log.Printf("Error writing frame data: %v", err)
 				return
 			}
+
 			_, err = w.Write([]byte("\r\n"))
 			if err != nil {
+				log.Printf("Error writing frame ending: %v", err)
 				return
 			}
+
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}
+
+			framesSent++
+			if framesSent%100 == 0 {
+				elapsed := time.Since(startTime).Seconds()
+				fps := float64(framesSent) / elapsed
+				log.Printf("Streaming to client at %.2f fps", fps)
+			}
 		}
+		log.Println("Stream ended")
 		return
 	}
 
@@ -104,12 +144,15 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	log.Println("Initializing stream...")
 	stream := newStream()
+
+	log.Println("Starting capture routine...")
 	go stream.startCapture()
 
-	// Give some time for the camera to initialize
+	// Give some time for camera initialization
 	time.Sleep(2 * time.Second)
 
-	fmt.Println("Server starting on :8080")
+	log.Println("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", stream))
 }
