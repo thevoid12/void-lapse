@@ -40,14 +40,40 @@ Ensure the following dependencies are installed:
 ### Verify Camera Detection  
 Plug in your webcam and verify detection:  
 
+-  use it to see all the video ports. If you see video0 then your webcam is successfully connected
+ ```bash
+  ls /dev/video* 
+ ``` 
+ - check the webcam available or not 
+ ```bash 
+ lsusb
+ ```
+- This command adds the user here `void` to the `video` group, which grants access to video devices like webcams and GPUs.
+  - **`-a` (append)**: Adds the user to the group without removing them from other groups.
+  - **`-G`**: Specifies the group to add the user to.
 ```bash
-ls -l /dev/video*
-```
-You should see something like `video0`.  
+ sudo usermod -a -G video void
 
-```bash
-v4l2-ctl --list-devices
 ```
+
+- Install fswebcam (a simple command-line webcam utility)
+```bash
+sudo apt install fswebcam
+```
+- Capture an image using fswebcam:
+``` bash
+fswebcam test_image.jpg
+```
+- This command installs the **v4l-utils** package, which provides a collection of utilities for Video4Linux (V4L) devices. These tools are essential for managing and troubleshooting video devices such as USB webcams and digital video capture cards. It includes commands like `v4l2-ctl`, which allows you to query and change settings such as brightness, contrast, exposure, and resolution.
+``` bash
+sudo apt install v4l-utils
+```
+- to get the formats what our camera can support 
+``` bash
+v4l2-ctl --list-formats-ext |more
+```
+
+
 
 ---
 
