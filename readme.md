@@ -62,7 +62,7 @@ sudo apt install fswebcam
 ```
 - Capture an image using fswebcam:
 ``` bash
-fswebcam test_image.jpg
+fswebcam --skip 60 --set brightness=70% test_image.jpg
 ```
 - This command installs the **v4l-utils** package, which provides a collection of utilities for Video4Linux (V4L) devices. These tools are essential for managing and troubleshooting video devices such as USB webcams and digital video capture cards. It includes commands like `v4l2-ctl`, which allows you to query and change settings such as brightness, contrast, exposure, and resolution.
 ``` bash
